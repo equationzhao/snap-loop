@@ -71,7 +71,11 @@ struct GameSession {
         if state == .playing { queue.append(.release) }
     }
 
-    mutating func cancelTouches() { pauseRun(.cancellation) }
+    mutating func cancelTouch(_ id: Int) -> Bool {
+        guard touch == id else { return false }
+        pauseRun(.cancellation)
+        return true
+    }
 
     mutating func pauseRun(_ reason: PauseReason) {
         touch = nil

@@ -132,10 +132,41 @@ struct GameRulesTests {
         advanceFrames(250, in: &session)
         #expect(session.core.death?.cause == .overload)
         #expect(session.state == .results)
-        session.cancelTouches()
+        _ = session.cancelTouch(1)
         session.armResume()
         session.endTouch(1)
         #expect(session.state == .results)
+    }
+
+    @Test func onlyTheCurrentTouchCanCancelTheRun() {
+        var session = GameSession(mode: .classic, seed: 8)
+        _ = session.beginTouch(1)
+        advanceFrames(20, in: &session)
+        _ = session.cancelTouch(1)
+        #expect(session.state == .paused)
+        session.armResume()
+        _ = session.beginTouch(2)
+        advanceFrames(20, in: &session)
+        _ = session.cancelTouch(1)
+        #expect(session.state == .playing)
+        #expect(session.core.charging)
+    }
+
+    @Test func queuesReleaseDuringHitStopUntilTheFirstPlayableStep() {
+        var session = GameSession(mode: .classic, seed: 75)
+        _ = session.beginTouch(1)
+        advanceFrames(144, in: &session)
+        session.endTouch(1)
+        advanceFrames(1, in: &session)
+        #expect(session.core.stats.kills == 1)
+        #expect(session.core.hitStop > 0)
+        _ = session.beginTouch(2)
+        session.endTouch(2)
+        advanceFrames(1, in: &session)
+        #expect(session.core.recovery == 0)
+        advanceFrames(9, in: &session)
+        #expect(session.core.recovery > 0)
+        #expect(session.replay.entries.map(\.command) == [.press, .release, .press, .release])
     }
 
     private func makeMine(_ id: Int, radius: Double, armed: Bool = true) -> Hazard {

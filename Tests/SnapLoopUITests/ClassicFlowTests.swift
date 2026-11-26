@@ -19,6 +19,9 @@ final class ClassicFlowTests: XCTestCase {
         let hint = app.staticTexts["battle-hint"]
         XCTAssertTrue(hint.waitForExistence(timeout: 3))
         XCTAssertEqual(hint.label, "Hold to start")
+        arena.press(forDuration: 1.42)
+        let score = app.staticTexts["run-score"]
+        XCTAssertTrue(score.wait(for: \.label, toEqual: "10", timeout: 3))
         arena.press(forDuration: 2.10)
         let restart = app.buttons["restart-game"]
         XCTAssertTrue(restart.waitForExistence(timeout: 4))
@@ -33,6 +36,10 @@ final class ClassicFlowTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["Records"].waitForExistence(timeout: 6))
         app.buttons["Records"].tap()
+        for _ in 0..<3 {
+            if app.staticTexts["Ring overload"].isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(app.staticTexts["Ring overload"].waitForExistence(timeout: 3))
     }
 

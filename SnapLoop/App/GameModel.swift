@@ -86,11 +86,13 @@ final class GameModel {
 
     func endTouch(_ id: Int) { session?.endTouch(id) }
 
+    func cancelTouch(_ id: Int) {
+        if session?.cancelTouch(id) == true { finishPause() }
+    }
+
     func pauseGame(_ reason: PauseReason) {
         session?.pauseRun(reason)
-        syncState()
-        scene.resetClock()
-        feedback.stopAll()
+        finishPause()
     }
 
     func armResume() {
@@ -125,6 +127,12 @@ final class GameModel {
 
     private func syncState() {
         if let next = session?.state, next != state { state = next }
+    }
+
+    private func finishPause() {
+        syncState()
+        scene.resetClock()
+        feedback.stopAll()
     }
 
     private func prepareRun(_ mode: GameMode) {

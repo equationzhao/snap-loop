@@ -375,8 +375,9 @@ final class TouchArenaView: SKView {
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        gestures.removeAll()
-        model?.pauseGame(.cancellation)
+        for touch in touches {
+            if let id = gestures.removeValue(forKey: ObjectIdentifier(touch)) { model?.cancelTouch(id) }
+        }
     }
 }
 

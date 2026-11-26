@@ -237,6 +237,7 @@ private struct BattleView: View {
                     Text(model.hud.score.formatted())
                         .font(.system(.largeTitle, design: .monospaced, weight: .semibold))
                         .monospacedDigit()
+                        .accessibilityIdentifier("run-score")
                 }
             }
             .allowsHitTesting(false)
@@ -515,12 +516,6 @@ private struct RecordsView: View {
                 LabeledContent(tr("净斩总数"), value: records.cleanses.formatted())
                 LabeledContent(tr("清除红雷"), value: records.minesBroken.formatted())
             }
-            Section(tr("瞬斩奖励")) {
-                LabeledContent(tr("贴脸"), value: records.bonuses[.closeCut, default: 0].formatted())
-                LabeledContent(tr("擦雷"), value: records.bonuses[.mineGraze, default: 0].formatted())
-                LabeledContent(tr("破雷"), value: records.bonuses[.mineBreak, default: 0].formatted())
-                LabeledContent(tr("满弓"), value: records.bonuses[.fullDraw, default: 0].formatted())
-            }
             Section(tr("最近对局")) {
                 if records.recent.isEmpty { Text(tr("完成一局后，成绩会出现在这里。")).foregroundStyle(.secondary) }
                 ForEach(records.recent) { run in
@@ -531,6 +526,12 @@ private struct RecordsView: View {
                         Text(run.date.formatted(date: .abbreviated, time: .shortened) + " · " + timeLabel(run.stats.duration))
                     }
                 }
+            }
+            Section(tr("瞬斩奖励")) {
+                LabeledContent(tr("贴脸"), value: records.bonuses[.closeCut, default: 0].formatted())
+                LabeledContent(tr("擦雷"), value: records.bonuses[.mineGraze, default: 0].formatted())
+                LabeledContent(tr("破雷"), value: records.bonuses[.mineBreak, default: 0].formatted())
+                LabeledContent(tr("满弓"), value: records.bonuses[.fullDraw, default: 0].formatted())
             }
         }
         .navigationTitle(tr("纪录"))
