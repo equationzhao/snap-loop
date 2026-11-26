@@ -3,7 +3,60 @@ import UIKit
 
 @MainActor
 final class Feedback {
-    private enum Cue: CaseIterable {
+    private let audio = AudioFeedback()
+    private let soft = UIImpactFeedbackGenerator(style: .soft)
+    private let rigid = UIImpactFeedbackGenerator(style: .rigid)
+    private let warning = UINotificationFeedbackGenerator()
+    private var haptics = true
+
+    func prepareSounds() {
+        audio.prepareSounds()
+    }
+
+    func applySettings(_ settings: PlayerSettings) {
+        haptics = settings.haptics
+        audio.setVolume(settings.volume)
+    }
+
+    func consumeEvent(_ event: GameEvent) {
+        switch event {
+        case .touch:
+            audio.playSound(.touch)
+            if haptics { soft.impactOccurred(intensity: 0.45) }
+        case .charge:
+            audio.playSound(.touch)
+            audio.playSound(.charge)
+            if haptics { soft.impactOccurred(intensity: 0.6) }
+        case let .lock(cleanseReady):
+            audio.playSound(cleanseReady ? .cleanse : .lock)
+            if cleanseReady && haptics { rigid.impactOccurred(intensity: 0.6) }
+        case .warning:
+            audio.playSound(.warning)
+            if haptics { warning.notificationOccurred(.warning) }
+        case let .snap(effect):
+            audio.stopCharge()
+            audio.playSound(effect.isCleanse ? .cleanse : (effect.award == nil ? .empty : .shot))
+            if haptics { rigid.impactOccurred(intensity: effect.isCleanse ? 1 : 0.54) }
+        case .defeat:
+            audio.stopCharge()
+            audio.playSound(.defeat)
+            if haptics { warning.notificationOccurred(.error) }
+        case .lessonComplete:
+            audio.stopCharge()
+        case let .beat(accent): audio.playSound(accent ? .accent : .pulse)
+        case .stage: audio.playSound(.cleanse)
+        case .fuse: audio.playSound(.fuse)
+        }
+    }
+
+    func stopAll() {
+        audio.stopSounds()
+    }
+}
+
+// The serial queue owns all audio state and keeps playback commands in game event order.
+private final class AudioFeedback: @unchecked Sendable {
+    enum Cue: CaseIterable, Sendable {
         case charge, touch, lock, cleanse, shot, empty, warning, defeat, pulse, accent, fuse
 
         var sound: (start: Double, end: Double, duration: Double, gain: Double) {
@@ -23,74 +76,52 @@ final class Feedback {
         }
     }
 
+    private let queue = DispatchQueue(label: "dev.equationzhao.SnapLoop.audio", qos: .userInitiated)
     private var players: [Cue: AVAudioPlayer] = [:]
-    private let soft = UIImpactFeedbackGenerator(style: .soft)
-    private let rigid = UIImpactFeedbackGenerator(style: .rigid)
-    private let warning = UINotificationFeedbackGenerator()
     private var volume = 0.65
-    private var haptics = true
-    private var prepared = false
 
     func prepareSounds() {
-        guard !prepared else { return }
-        prepared = true
-        try? AVAudioSession.sharedInstance().setCategory(.ambient)
-        for cue in Cue.allCases {
-            if let player = try? AVAudioPlayer(data: makeWave(cue)) {
-                player.volume = Float(volume)
-                player.numberOfLoops = cue == .charge ? -1 : 0
-                player.prepareToPlay()
-                players[cue] = player
+        queue.async { [self] in
+            try? AVAudioSession.sharedInstance().setCategory(.ambient)
+            for cue in Cue.allCases {
+                if let player = try? AVAudioPlayer(data: makeWave(cue)) {
+                    player.volume = Float(volume)
+                    player.numberOfLoops = cue == .charge ? -1 : 0
+                    player.prepareToPlay()
+                    players[cue] = player
+                }
             }
         }
     }
 
-    func applySettings(_ settings: PlayerSettings) {
-        volume = settings.volume
-        haptics = settings.haptics
-        for player in players.values { player.volume = Float(volume) }
-        if volume == 0 { stopAll() }
-    }
-
-    func consumeEvent(_ event: GameEvent) {
-        switch event {
-        case .touch:
-            playSound(.touch)
-            if haptics { soft.impactOccurred(intensity: 0.45) }
-        case .charge:
-            playSound(.touch)
-            playSound(.charge)
-            if haptics { soft.impactOccurred(intensity: 0.6) }
-        case let .lock(cleanseReady):
-            playSound(cleanseReady ? .cleanse : .lock)
-            if cleanseReady && haptics { rigid.impactOccurred(intensity: 0.6) }
-        case .warning:
-            playSound(.warning)
-            if haptics { warning.notificationOccurred(.warning) }
-        case let .snap(effect):
-            players[.charge]?.stop()
-            playSound(effect.isCleanse ? .cleanse : (effect.award == nil ? .empty : .shot))
-            if haptics { rigid.impactOccurred(intensity: effect.isCleanse ? 1 : 0.54) }
-        case .defeat:
-            players[.charge]?.stop()
-            playSound(.defeat)
-            if haptics { warning.notificationOccurred(.error) }
-        case .lessonComplete:
-            players[.charge]?.stop()
-        case let .beat(accent): playSound(accent ? .accent : .pulse)
-        case .stage: playSound(.cleanse)
-        case .fuse: playSound(.fuse)
+    func setVolume(_ level: Double) {
+        queue.async { [self] in
+            volume = level
+            for player in players.values {
+                player.volume = Float(level)
+                if level == 0 && player.isPlaying { player.stop() }
+            }
         }
     }
 
-    func stopAll() {
-        for player in players.values { player.stop() }
+    func playSound(_ cue: Cue) {
+        queue.async { [self] in
+            guard volume > 0, let player = players[cue] else { return }
+            player.currentTime = 0
+            player.play()
+        }
     }
 
-    private func playSound(_ cue: Cue) {
-        guard volume > 0, let player = players[cue] else { return }
-        player.currentTime = 0
-        player.play()
+    func stopCharge() {
+        queue.async { [self] in
+            if let player = players[.charge], player.isPlaying { player.stop() }
+        }
+    }
+
+    func stopSounds() {
+        queue.async { [self] in
+            for player in players.values where player.isPlaying { player.stop() }
+        }
     }
 
     private func makeWave(_ cue: Cue) -> Data {

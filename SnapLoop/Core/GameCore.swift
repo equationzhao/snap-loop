@@ -38,8 +38,10 @@ struct GameCore {
     var stage: Int { director.stage }
     var locks: LockState {
         guard charging else { return LockState() }
-        let selection = selectTargets()
-        return LockState(enemies: selection.enemies.count, hazards: selection.hazards.count)
+        var count = LockState()
+        for enemy in enemies where ArenaRules.capturesEnemy(enemy, radius: ring) { count.enemies += 1 }
+        for hazard in hazards where ArenaRules.containsHazard(hazard, radius: ring) { count.hazards += 1 }
+        return count
     }
 
     init(mode: GameMode, seed: UInt64) {
@@ -183,7 +185,9 @@ struct GameCore {
     }
 
     private mutating func advanceWaves() {
-        let wave = director.advanceWaves(stats: stats, comets: hazards.filter(\.isComet).count + warnings.count, random: &random)
+        var comets = warnings.count
+        for hazard in hazards where hazard.isComet { comets += 1 }
+        let wave = director.advanceWaves(stats: stats, comets: comets, random: &random)
         if wave.stageChanged { events.append(.stage) }
         if let accent = wave.beat { events.append(.beat(accent: accent)) }
         if wave.comet { spawnCometWarning() }

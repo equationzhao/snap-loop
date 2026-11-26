@@ -34,6 +34,14 @@ struct ArenaRules {
         let resistance = max(0, min(1, (radius - 240) / (maximum - 240)))
         return min(maximum, radius + (266 - resistance * 198) * step)
     }
+
+    static func capturesEnemy(_ enemy: Enemy, radius: Double) -> Bool {
+        enemy.radius <= radius + captureGrace
+    }
+
+    static func containsHazard(_ hazard: Hazard, radius: Double) -> Bool {
+        hazard.armed && hazard.radius <= radius - mineGrace
+    }
 }
 
 struct GameplayRandom {
@@ -157,9 +165,9 @@ struct SnapSelection {
     var isCleanse: Bool { enemies.count >= ArenaRules.cleanseMinimum }
 
     init(radius: Double, enemies: [Enemy], hazards: [Hazard]) {
-        self.enemies = enemies.filter { $0.radius <= radius + ArenaRules.captureGrace }
+        self.enemies = enemies.filter { ArenaRules.capturesEnemy($0, radius: radius) }
         let trigger = radius - ArenaRules.mineGrace
-        self.hazards = hazards.filter { $0.armed && $0.radius <= trigger }
+        self.hazards = hazards.filter { ArenaRules.containsHazard($0, radius: radius) }
         grazesMine = hazards.contains { $0.armed && $0.radius > trigger && $0.radius <= radius + 22 }
     }
 }

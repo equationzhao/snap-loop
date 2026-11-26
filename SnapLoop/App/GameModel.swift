@@ -40,6 +40,7 @@ final class GameModel {
         settings = storage.loadSettings()
         records = storage.loadRecords()
         feedback.applySettings(settings)
+        feedback.prepareSounds()
     }
 
     func startGame() {
@@ -136,7 +137,6 @@ final class GameModel {
     }
 
     private func prepareRun(_ mode: GameMode) {
-        feedback.prepareSounds()
         feedback.stopAll()
         scene.resetScene()
         session = GameSession(mode: mode, seed: UInt64.random(in: .min ... .max))
