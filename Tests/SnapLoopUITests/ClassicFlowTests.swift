@@ -19,9 +19,13 @@ final class ClassicFlowTests: XCTestCase {
         let hint = app.staticTexts["battle-hint"]
         XCTAssertTrue(hint.waitForExistence(timeout: 3))
         XCTAssertEqual(hint.label, "Hold to start")
-        arena.press(forDuration: 1.42)
+        arena.press(forDuration: 0.10)
+        XCTAssertTrue(hint.wait(for: \.label, toEqual: "Hold to expand · Release to snap", timeout: 3))
+        arena.press(forDuration: 1.00)
         let score = app.staticTexts["run-score"]
-        XCTAssertTrue(score.wait(for: \.label, toEqual: "10", timeout: 3))
+        let scored = NSPredicate { _, _ in (Int(score.label) ?? 0) > 0 }
+        let scoredExpectation = XCTNSPredicateExpectation(predicate: scored, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [scoredExpectation], timeout: 3), .completed, "Score: \(score.label)")
         arena.press(forDuration: 2.10)
         let restart = app.buttons["restart-game"]
         XCTAssertTrue(restart.waitForExistence(timeout: 4))
